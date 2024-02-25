@@ -74,7 +74,6 @@ func fetchPage(page int) (*PageData, error) {
 	if respData["page"] == nil {
 		return nil, fmt.Errorf("page not found")
 	}
-	fmt.Printf("%+v\n", respData["page"].(map[string]interface{})["pageInfo"])
 	pageData.PageInfo = struct {
 		hasNextPage bool
 	}{
