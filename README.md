@@ -21,23 +21,29 @@
 
 This is a WebSocket endpoint that sends real-time notifications about new anime episodes.
 
-To connect to this endpoint, you need a WebSocket client. Once connected, the server will send a message whenever a new anime episode is released.
+To connect to this endpoint, you need a WebSocket client. Once connected, the server will send a message whenever a new anime episode is released. The message contains information about the released anime and the episode details.
 
 Example message:
 
 ```json
 {
-  "Id": 123,
-  "Title": "Example Anime",
-  "Episodes": 12,
-  "AiringSchedule": [
-    {
-      "AiringAt": 1616055600,
-      "Episode": 1
-    }
-  ],
-  "Description": "This is an example anime.",
-  "CoverImage": "https://example.com/image.jpg"
+  "media": {
+    "Id": 123,
+    "Title": "Example Anime",
+    "Episodes": 12,
+    "AiringSchedule": [
+      {
+        "AiringAt": 1616055600,
+        "Episode": 1
+      }
+    ],
+    "Description": "This is an example anime.",
+    "CoverImage": "https://example.com/image.jpg"
+  },
+  "episode": {
+    "AiringAt": 1616055600,
+    "Episode": 1
+  }
 }
 ```
 
