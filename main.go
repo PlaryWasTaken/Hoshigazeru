@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/PlaryWasTaken/Hoshigazeru/AniList"
 	"github.com/PlaryWasTaken/Hoshigazeru/Client"
 	"github.com/gorilla/websocket"
@@ -61,6 +62,22 @@ func main() {
 				}
 			}
 		}()
+	})
+	http.HandleFunc("/animes", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		marshal, err := json.Marshal(client.Medias)
+		if err != nil {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(marshal)
+		if err != nil {
+			return
+		}
 	})
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
