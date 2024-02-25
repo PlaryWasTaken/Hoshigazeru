@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	ReleaseHandleFunc func(media AniList.Media)
+	ReleaseHandleFunc func(media AniList.Media, episode AniList.EpisodeSchedule)
 	Client            struct {
 		ReleasedCheckDelay time.Duration
 		//ReleasedChan       chan AniList.Media
@@ -44,9 +44,9 @@ func (c *Client) Unsubscribe(index int) {
 	delete(c.Subscribers, index)
 	fmt.Println(c.Subscribers)
 }
-func (c *Client) EmitRelease(media AniList.Media) {
+func (c *Client) EmitRelease(media AniList.Media, episode AniList.EpisodeSchedule) {
 	for _, subscriber := range c.Subscribers {
-		go subscriber(media)
+		go subscriber(media, episode)
 	}
 }
 
@@ -57,7 +57,7 @@ func (c *Client) CheckReleases() []AniList.Media {
 		for i, schedule := range media.AiringSchedule {
 			if time.Now().Unix() > int64(schedule.AiringAt) {
 				media.AiringSchedule = fastRemove(media.AiringSchedule, i)
-				c.EmitRelease(media)
+				c.EmitRelease(media, schedule)
 				releases = append(releases, media)
 			}
 		}

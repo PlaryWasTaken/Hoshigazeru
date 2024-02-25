@@ -23,9 +23,13 @@ func main() {
 		}
 		slog.Info("Connection upgraded to websocket")
 
-		id := client.Subscribe(func(released AniList.Media) {
+		id := client.Subscribe(func(released AniList.Media, episode AniList.EpisodeSchedule) {
 			slog.Info("Sending release", slog.String("title", released.Title))
-			err := conn.WriteJSON(released)
+			data := map[string]interface{}{
+				"media":   released,
+				"episode": episode,
+			}
+			err := conn.WriteJSON(data)
 			if err != nil {
 				return
 			}
