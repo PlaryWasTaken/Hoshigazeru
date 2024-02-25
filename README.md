@@ -17,8 +17,56 @@
 
 ## Endpoints
 
-- `/releases`: Endpoint WebSocket que envia notificações em tempo real sobre novos episódios de anime.
-- `/animes`: Endpoint HTTP GET que retorna uma lista de animes.
+### `/releases`
+
+This is a WebSocket endpoint that sends real-time notifications about new anime episodes.
+
+To connect to this endpoint, you need a WebSocket client. Once connected, the server will send a message whenever a new anime episode is released.
+
+Example message:
+
+```json
+{
+  "Id": 123,
+  "Title": "Example Anime",
+  "Episodes": 12,
+  "AiringSchedule": [
+    {
+      "AiringAt": 1616055600,
+      "Episode": 1
+    }
+  ],
+  "Description": "This is an example anime.",
+  "CoverImage": "https://example.com/image.jpg"
+}
+```
+
+### `/animes`
+
+This is an HTTP GET endpoint that returns a list of animes.
+
+To use this endpoint, send a GET request to `https://kikyo.dev/animes`. The server will respond with a JSON array of animes.
+
+Example response:
+
+```json
+[
+  {
+    "Id": 123,
+    "Title": "Example Anime",
+    "Episodes": 12,
+    "AiringSchedule": [
+      {
+        "AiringAt": 1616055600,
+        "Episode": 1
+      }
+    ],
+    "Description": "This is an example anime.",
+    "CoverImage": "https://example.com/image.jpg"
+  },
+  ...
+]
+```
 
 ## Contribuindo
 
