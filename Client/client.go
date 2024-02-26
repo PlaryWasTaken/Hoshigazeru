@@ -62,7 +62,7 @@ func (c *Client) CheckReleases() []AniList.Media {
 			}
 		}
 	}
-	c.EmitRelease(c.Medias[0], c.Medias[0].AiringSchedule[0])
+	//c.EmitRelease(c.Medias[0], c.Medias[0].AiringSchedule[0])
 	slog.Info(fmt.Sprintf("Found %d releases", len(releases)), slog.Int("released", len(releases)))
 	return releases
 }
