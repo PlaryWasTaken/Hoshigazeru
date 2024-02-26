@@ -34,11 +34,18 @@ func main() {
 				return
 			}
 		})
-
+		pingHandler := &PingHandler{
+			Conn:           conn,
+			WaitingForPong: false,
+			PingsMissed:    0,
+			Client:         client,
+			Id:             id,
+		}
+		pingHandler.StartPings()
 		conn.SetCloseHandler(func(code int, text string) error {
 			slog.Info("Connection closed", slog.Int("code", code), slog.String("text", text))
 			client.Unsubscribe(id)
-			conn.Close()
+			_ = conn.Close()
 			return nil
 		})
 
@@ -50,11 +57,8 @@ func main() {
 				}
 				slog.Info("Received message", slog.String("message", string(msg)))
 				switch string(msg) {
-				case "ping":
-					err := conn.WriteMessage(websocket.TextMessage, []byte("pong"))
-					if err != nil {
-						return
-					}
+				case "pong":
+					pingHandler.AcknowledgePing()
 					break
 				case "close":
 					client.Unsubscribe(id)
@@ -87,4 +91,36 @@ func main() {
 	if err != nil {
 		return
 	}
+}
+
+type PingHandler struct {
+	Conn           *websocket.Conn
+	PingsMissed    int
+	WaitingForPong bool
+	Client         *Client.Client
+	Id             int
+}
+
+func (p *PingHandler) StartPings() {
+	go func() {
+		for {
+			if p.WaitingForPong {
+				p.PingsMissed++
+				slog.Info("Pings missed", slog.Int("missed", p.PingsMissed))
+				if p.PingsMissed > 3 {
+					_ = p.Conn.Close()
+					p.Client.Unsubscribe(p.Id)
+					return
+				}
+			}
+			_ = p.Conn.WriteMessage(websocket.TextMessage, []byte("ping"))
+			p.WaitingForPong = true
+
+			time.Sleep(time.Second * 5)
+		}
+	}()
+}
+func (p *PingHandler) AcknowledgePing() {
+	p.WaitingForPong = false
+	p.PingsMissed = 0
 }
