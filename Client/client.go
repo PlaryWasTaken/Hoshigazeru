@@ -51,7 +51,7 @@ func (c *Client) EmitRelease(media AniList.Media, episode AniList.EpisodeSchedul
 }
 
 func (c *Client) CheckReleases() []AniList.Media {
-	slog.Info("Checking releases")
+	slog.Debug("Checking releases")
 	var releases []AniList.Media
 	for _, media := range c.Medias {
 		for i, schedule := range media.AiringSchedule {
@@ -63,7 +63,9 @@ func (c *Client) CheckReleases() []AniList.Media {
 		}
 	}
 	//c.EmitRelease(c.Medias[0], c.Medias[0].AiringSchedule[0])
-	slog.Info(fmt.Sprintf("Found %d releases", len(releases)), slog.Int("released", len(releases)))
+	if len(releases) > 0 {
+		slog.Info(fmt.Sprintf("Found %d releases", len(releases)), slog.Int("released", len(releases)), slog.Any("releases", releases))
+	}
 	return releases
 }
 
