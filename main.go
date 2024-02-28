@@ -55,7 +55,7 @@ func main() {
 				if err != nil {
 					return
 				}
-				slog.Info("Received message", slog.String("message", string(msg)))
+
 				switch string(msg) {
 				case "pong":
 					pingHandler.AcknowledgePing()
@@ -67,6 +67,8 @@ func main() {
 						return
 					}
 					return
+				default:
+					slog.Info("Received message", slog.String("message", string(msg)))
 				}
 			}
 		}()
