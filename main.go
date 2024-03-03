@@ -22,24 +22,26 @@ func main() {
 			return
 		}
 		slog.Info("Connection upgraded to websocket")
-
+		webSocketHandler := Client.CreateWebsocketHandler(conn)
+		webSocketHandler.Start()
 		id := client.Subscribe(func(released AniList.Media, episode AniList.EpisodeSchedule) {
 			slog.Info("Sending release", slog.String("title", released.Title))
 			data := map[string]interface{}{
 				"media":   released,
 				"episode": episode,
 			}
-			err := conn.WriteJSON(data)
+			webSocketHandler.SendJSON(data)
 			if err != nil {
 				return
 			}
 		})
 		pingHandler := &PingHandler{
-			Conn:           conn,
-			WaitingForPong: false,
-			PingsMissed:    0,
-			Client:         client,
-			Id:             id,
+			Conn:             conn,
+			WaitingForPong:   false,
+			PingsMissed:      0,
+			Client:           client,
+			Id:               id,
+			WebsocketHandler: webSocketHandler,
 		}
 		pingHandler.StartPings()
 		conn.SetCloseHandler(func(code int, text string) error {
@@ -96,11 +98,12 @@ func main() {
 }
 
 type PingHandler struct {
-	Conn           *websocket.Conn
-	PingsMissed    int
-	WaitingForPong bool
-	Client         *Client.Client
-	Id             int
+	WebsocketHandler *Client.WebsocketHandler
+	PingsMissed      int
+	WaitingForPong   bool
+	Client           *Client.Client
+	Id               int
+	Conn             *websocket.Conn
 }
 
 func (p *PingHandler) StartPings() {
@@ -115,7 +118,10 @@ func (p *PingHandler) StartPings() {
 					return
 				}
 			}
-			_ = p.Conn.WriteMessage(websocket.TextMessage, []byte("ping"))
+			p.WebsocketHandler.MsgChan <- Client.Message{
+				Type: Client.TextMessage,
+				Data: []byte("ping"),
+			}
 			p.WaitingForPong = true
 
 			time.Sleep(time.Second * 5)
