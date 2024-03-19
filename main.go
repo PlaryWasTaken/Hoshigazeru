@@ -18,4 +18,6 @@ func main() {
 		os.Exit(1)
 		return
 	}
+	c := make(chan struct{})
+	c <- struct{}{}
 }
