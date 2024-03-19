@@ -54,15 +54,15 @@ func (c *Client) CheckReleases() []AniList.Media {
 	slog.Debug("Checking releases")
 	var releases []AniList.Media
 	for _, media := range c.Medias {
+		mediaPtr := &media
 		for i, schedule := range media.AiringSchedule {
 			if time.Now().Unix() > int64(schedule.AiringAt) {
-				media.AiringSchedule = fastRemove(media.AiringSchedule, i)
-				c.EmitRelease(media, schedule)
-				releases = append(releases, media)
+				mediaPtr.AiringSchedule = fastRemove(media.AiringSchedule, i)
+				c.EmitRelease(*mediaPtr, schedule)
+				releases = append(releases, *mediaPtr)
 			}
 		}
 	}
-	//c.EmitRelease(c.Medias[0], c.Medias[0].AiringSchedule[0])
 	if len(releases) > 0 {
 		slog.Info(fmt.Sprintf("Found %d releases", len(releases)), slog.Int("released", len(releases)), slog.Any("releases", releases))
 	}
