@@ -53,16 +53,19 @@ func (c *Client) EmitRelease(media AniList.Media, episode AniList.EpisodeSchedul
 func (c *Client) CheckReleases() []AniList.Media {
 	slog.Debug("Checking releases")
 	var releases []AniList.Media
+	var newList []AniList.Media
 	for _, media := range c.Medias {
 		mediaPtr := &media
-		for i, schedule := range media.AiringSchedule {
+		for i, schedule := range mediaPtr.AiringSchedule {
 			if time.Now().Unix() > int64(schedule.AiringAt) {
 				mediaPtr.AiringSchedule = fastRemove(media.AiringSchedule, i)
 				c.EmitRelease(*mediaPtr, schedule)
 				releases = append(releases, *mediaPtr)
 			}
 		}
+		newList = append(newList, *mediaPtr)
 	}
+	c.Medias = newList
 	if len(releases) > 0 {
 		slog.Info(fmt.Sprintf("Found %d releases", len(releases)), slog.Int("released", len(releases)), slog.Any("releases", releases))
 	}
@@ -70,7 +73,7 @@ func (c *Client) CheckReleases() []AniList.Media {
 }
 
 func (c *Client) Start() {
-	c.Polling.Start()
+	//c.Polling.Start()
 	file, _ := os.ReadFile("savedMedias.json")
 	if file != nil {
 		var data []AniList.Media
