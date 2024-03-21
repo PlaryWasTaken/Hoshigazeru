@@ -73,7 +73,7 @@ func (c *Client) CheckReleases() []AniList.Media {
 }
 
 func (c *Client) Start() {
-	//c.Polling.Start()
+	c.Polling.Start()
 	file, _ := os.ReadFile("savedMedias.json")
 	if file != nil {
 		var data []AniList.Media
