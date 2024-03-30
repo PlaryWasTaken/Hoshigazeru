@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	client := Client.CreateClient(time.Second*5, time.Hour)
+	client := Client.CreateClient(time.Second*15, time.Hour)
 	client.Start()
 
 	err := web.Start(client)
