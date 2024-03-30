@@ -24,6 +24,7 @@ func (p *PingHandler) StartPings() {
 				slog.Info("Pings missed", slog.Int("missed", p.PingsMissed))
 				if p.PingsMissed > 3 {
 					_ = p.Conn.Close()
+					p.WebsocketHandler.Destroy()
 					p.Client.Unsubscribe(p.Id)
 					return
 				}
