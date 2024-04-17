@@ -26,7 +26,7 @@ type (
 func CreateWebsocketHandler(conn *websocket.Conn) *WebsocketHandler {
 	return &WebsocketHandler{
 		Conn:    conn,
-		MsgChan: make(chan Message),
+		MsgChan: make(chan Message, 20),
 	}
 }
 
@@ -60,4 +60,7 @@ func (w *WebsocketHandler) SendJSON(msg interface{}) {
 		Type: JSONMessage,
 		Data: msg,
 	}
+}
+func (w *WebsocketHandler) Destroy() {
+	close(w.MsgChan)
 }
