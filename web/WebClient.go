@@ -89,6 +89,34 @@ func Start(client *Client.Client) error {
 			return
 		}
 	})
+	http.HandleFunc("/animes/nextRelease", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var latestMedia AniList.Media
+		for i, media := range client.Medias {
+			if i == 0 {
+				latestMedia = media
+				continue
+			}
+			if len(media.AiringSchedule) > 0 {
+				if media.AiringSchedule[0].AiringAt < latestMedia.AiringSchedule[0].AiringAt {
+					latestMedia = media
+				}
+			}
+		}
+		marshal, err := json.Marshal(latestMedia)
+		if err != nil {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(marshal)
+		if err != nil {
+			return
+		}
+	})
 	l, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		slog.Error("Error starting web server", slog.Any("error", err))
@@ -98,7 +126,7 @@ func Start(client *Client.Client) error {
 		go func() {
 			err := http.Serve(l, nil)
 			if err != nil {
-				slog.Error("Error serving", slog.Any("error", err)) // Eh should be properly handled, but idc
+				slog.Error("Error serving", slog.Any("error", err)) // Eh, should be properly handled, but idc
 			}
 		}()
 		return nil
