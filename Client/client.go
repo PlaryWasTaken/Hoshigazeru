@@ -6,6 +6,7 @@ import (
 	"github.com/PlaryWasTaken/Hoshigazeru/AniList"
 	"log/slog"
 	"os"
+	"regexp"
 	"time"
 )
 
@@ -24,6 +25,18 @@ type (
 func fastRemove[T any](slice []T, i int) []T {
 	slice[i] = slice[len(slice)-1]
 	return slice[:len(slice)-1]
+}
+func parseHtmlToMarkdown(description string) string {
+	br := regexp.MustCompile(`<br>`)
+	bold := regexp.MustCompile(`</?b>`)
+	italic := regexp.MustCompile(`</?i>`)
+	underline := regexp.MustCompile(`</?u>`)
+
+	replaced := br.ReplaceAllString(description, "\n")
+	replaced = bold.ReplaceAllString(replaced, "**")
+	replaced = italic.ReplaceAllString(replaced, "*")
+	replaced = underline.ReplaceAllString(replaced, "__")
+	return replaced
 }
 
 func CreateClient(expiredDelay time.Duration, apiDelay time.Duration) *Client {
@@ -90,6 +103,13 @@ func (c *Client) Start() {
 	go func() {
 		for {
 			fetched := <-c.Polling.Chan
+			for _, media := range fetched {
+				mediaPtr := &media
+				if mediaPtr.Description != nil {
+					markdown := parseHtmlToMarkdown(*mediaPtr.Description)
+					mediaPtr.MarkdownDescription = &markdown
+				}
+			}
 			c.Medias = fetched
 			// Creates local buffer of medias for release checking at startup
 			create, err := os.Create("savedMedias.json")

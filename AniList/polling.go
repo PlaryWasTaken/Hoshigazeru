@@ -21,12 +21,13 @@ type (
 		Medias []Media
 	}
 	Media struct {
-		Id             int
-		Title          string
-		Episodes       *int // This is a pointer because the episodes can be null
-		AiringSchedule []EpisodeSchedule
-		Description    *string // This is a pointer because the description can be null
-		CoverImage     string
+		Id                  int
+		Title               string
+		Episodes            *int // This is a pointer because the episodes can be null
+		AiringSchedule      []EpisodeSchedule
+		Description         *string // This is a pointer because the description can be null
+		MarkdownDescription *string
+		CoverImage          string
 	}
 	EpisodeSchedule struct {
 		AiringAt int
