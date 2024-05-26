@@ -103,14 +103,16 @@ func (c *Client) Start() {
 	go func() {
 		for {
 			fetched := <-c.Polling.Chan
+			var newList []AniList.Media
 			for _, media := range fetched {
 				mediaPtr := &media
 				if mediaPtr.Description != nil {
 					markdown := parseHtmlToMarkdown(*mediaPtr.Description)
 					mediaPtr.MarkdownDescription = &markdown
 				}
+				newList = append(newList, *mediaPtr)
 			}
-			c.Medias = fetched
+			c.Medias = newList
 			// Creates local buffer of medias for release checking at startup
 			create, err := os.Create("savedMedias.json")
 			if err != nil {
