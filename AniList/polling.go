@@ -27,10 +27,18 @@ type (
 		AiringSchedule []EpisodeSchedule
 		Description    *string // This is a pointer because the description can be null
 		CoverImage     string
+		ExternalLinks  []ExternalLinks
 	}
 	EpisodeSchedule struct {
 		AiringAt int
 		Episode  int
+	}
+	ExternalLinks struct {
+		Type  string
+		Site  string
+		Color string
+		Url   string
+		Icon  string
 	}
 )
 
@@ -59,6 +67,14 @@ func fetchPage(page int) (*PageData, error) {
       			coverImage {
       			  large
       			}
+				externalLinks {
+					isDisabled
+					icon
+					type
+      				site
+      				color
+      				url
+				}
     		}
   		}
 	}
@@ -96,6 +112,20 @@ func fetchPage(page int) (*PageData, error) {
 				Episode:  int(scheduleData["episode"].(float64)),
 			})
 		}
+		var externalLinks []ExternalLinks
+		for _, link := range mediaData["externalLinks"].([]interface{}) {
+			linkData := link.(map[string]interface{})
+			if linkData["isDisabled"].(bool) {
+				continue
+			}
+			externalLinks = append(externalLinks, ExternalLinks{
+				Type:  linkData["type"].(string),
+				Site:  linkData["site"].(string),
+				Color: linkData["color"].(string),
+				Url:   linkData["url"].(string),
+				Icon:  linkData["icon"].(string),
+			})
+		}
 		var episodes *int = nil
 		if mediaData["episodes"] != nil {
 			eps := int(mediaData["episodes"].(float64))
@@ -113,6 +143,7 @@ func fetchPage(page int) (*PageData, error) {
 			Description:    description,
 			AiringSchedule: airingSchedule,
 			CoverImage:     mediaData["coverImage"].(map[string]interface{})["large"].(string),
+			ExternalLinks:  externalLinks,
 		})
 
 	}
