@@ -21,14 +21,14 @@ type (
 		Medias []Media
 	}
 	Media struct {
-		Id             int
-		Title          string
-		Episodes       *int // This is a pointer because the episodes can be null
-		AiringSchedule []EpisodeSchedule
-		Description    *string // This is a pointer because the description can be null
+		Id                  int
+		Title               string
+		Episodes            *int // This is a pointer because the episodes can be null
+		AiringSchedule      []EpisodeSchedule
+		Description         *string // This is a pointer because the description can be null
 		MarkdownDescription *string
-		CoverImage     string
-		ExternalLinks  []ExternalLinks
+		CoverImage          string
+		ExternalLinks       []ExternalLinks
 	}
 	EpisodeSchedule struct {
 		AiringAt int
@@ -37,9 +37,9 @@ type (
 	ExternalLinks struct {
 		Type  string
 		Site  string
-		Color string
+		Color *string
 		Url   string
-		Icon  string
+		Icon  *string
 	}
 )
 
@@ -119,12 +119,20 @@ func fetchPage(page int) (*PageData, error) {
 			if linkData["isDisabled"].(bool) {
 				continue
 			}
+			var color string
+			var icon string
+			if linkData["color"] != nil {
+				color = linkData["color"].(string)
+			}
+			if linkData["icon"] != nil {
+				icon = linkData["icon"].(string)
+			}
 			externalLinks = append(externalLinks, ExternalLinks{
 				Type:  linkData["type"].(string),
 				Site:  linkData["site"].(string),
-				Color: linkData["color"].(string),
+				Color: &color,
 				Url:   linkData["url"].(string),
-				Icon:  linkData["icon"].(string),
+				Icon:  &icon,
 			})
 		}
 		var episodes *int = nil

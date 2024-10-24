@@ -71,7 +71,7 @@ func (c *Client) CheckReleases() []AniList.Media {
 		mediaPtr := &media
 		for i, schedule := range mediaPtr.AiringSchedule {
 			if time.Now().Unix() > int64(schedule.AiringAt) {
-				mediaPtr.AiringSchedule = fastRemove(media.AiringSchedule, i)
+				mediaPtr.AiringSchedule = fastRemove(mediaPtr.AiringSchedule, i)
 				c.EmitRelease(*mediaPtr, schedule)
 				releases = append(releases, *mediaPtr)
 			}
