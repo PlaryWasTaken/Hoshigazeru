@@ -29,6 +29,7 @@ type (
 		MarkdownDescription *string
 		CoverImage          string
 		ExternalLinks       []ExternalLinks
+		isAdult             bool
 	}
 	EpisodeSchedule struct {
 		AiringAt int
@@ -64,6 +65,7 @@ func fetchPage(page int) (*PageData, error) {
       			    episode
      			   }
      		 	}
+				isAdult
       			description (asHtml: false)
       			coverImage {
       			  large
@@ -153,6 +155,7 @@ func fetchPage(page int) (*PageData, error) {
 			AiringSchedule: airingSchedule,
 			CoverImage:     mediaData["coverImage"].(map[string]interface{})["large"].(string),
 			ExternalLinks:  externalLinks,
+			isAdult:        mediaData["isAdult"].(bool),
 		})
 
 	}
