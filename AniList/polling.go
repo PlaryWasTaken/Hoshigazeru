@@ -3,33 +3,33 @@ package AniList
 import (
 	"context"
 	"fmt"
-	"github.com/machinebox/graphql"
 	"log/slog"
+	"sync"
 	"time"
+
+	"github.com/machinebox/graphql"
 )
 
 type (
 	PollingClient struct {
 		ApiFetchDelay time.Duration
 		Chan          chan []Media
-		started       bool
+		startOnce     sync.Once
 	}
 	PageData struct {
-		PageInfo struct {
-			hasNextPage bool
-		}
-		Medias []Media
+		PageInfo struct{ HasNextPage bool }
+		Medias   []Media
 	}
 	Media struct {
 		Id                  int
 		Title               string
-		Episodes            *int // This is a pointer because the episodes can be null
+		Episodes            *int
 		AiringSchedule      []EpisodeSchedule
-		Description         *string // This is a pointer because the description can be null
+		Description         *string
 		MarkdownDescription *string
 		CoverImage          string
 		ExternalLinks       []ExternalLinks
-		isAdult             bool
+		IsAdult             bool
 	}
 	EpisodeSchedule struct {
 		AiringAt int
@@ -44,166 +44,127 @@ type (
 	}
 )
 
-func fetchPage(page int) (*PageData, error) {
-	client := graphql.NewClient("https://graphql.anilist.co")
-	req := graphql.NewRequest(`
-	query ($page: Int) {
-		page: Page(perPage: 50, page: $page) {
-    			pageInfo {
-      				hasNextPage
-    			}
-    		medias: media(format: TV, sort: POPULARITY_DESC, status_in: [RELEASING, NOT_YET_RELEASED]) {
-      			id
-      			title {
-        			romaji
-        			english
-      			}
-      			episodes
-      			airingSchedule(notYetAired: true) {
-      		  	nodes {
-     			    airingAt
-      			    episode
-     			   }
-     		 	}
-				isAdult
-      			description (asHtml: false)
-      			coverImage {
-      			  large
-      			}
-				externalLinks {
-					isDisabled
-					icon
-					type
-      				site
-      				color
-      				url
-				}
-    		}
-  		}
+const mediaQuery = `
+query ($page: Int) {
+  page: Page(perPage: 50, page: $page) {
+    pageInfo { hasNextPage }
+    medias: media(type: ANIME, format: TV, sort: POPULARITY_DESC, status_in: [RELEASING, NOT_YET_RELEASED]) {
+      id
+      title { romaji english }
+      episodes
+      airingSchedule(notYetAired: true) { nodes { airingAt episode } }
+      isAdult
+      description(asHtml: false)
+      coverImage { large }
+      externalLinks { isDisabled icon type site color url }
+    }
+  }
+}`
+
+// Decode nullable API fields directly instead of asserting types from untyped maps.
+type apiMedia struct {
+	Id    int
+	Title struct {
+		Romaji  string
+		English *string
 	}
-	`)
+	Episodes       *int
+	AiringSchedule struct{ Nodes []EpisodeSchedule }
+	IsAdult        bool
+	Description    *string
+	CoverImage     struct{ Large string }
+	ExternalLinks  []struct {
+		ExternalLinks
+		IsDisabled bool
+	}
+}
+
+func fetchPage(page int) (*PageData, error) {
+	return fetchPageWithClient(context.Background(), graphql.NewClient("https://graphql.anilist.co"), page)
+}
+
+func fetchPageWithClient(ctx context.Context, client *graphql.Client, page int) (*PageData, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	req := graphql.NewRequest(mediaQuery)
 	req.Var("page", page)
-	ctx := context.WithoutCancel(context.Background())
-	var respData map[string]interface{}
-	if err := client.Run(ctx, req, &respData); err != nil {
+	var response struct {
+		Page *struct {
+			PageInfo struct{ HasNextPage bool }
+			Medias   []apiMedia
+		}
+	}
+	if err := client.Run(ctx, req, &response); err != nil {
 		return nil, err
 	}
-	var pageData PageData
-	// Unmarshal the response into a struct
-	if respData["page"] == nil {
+	if response.Page == nil {
 		return nil, fmt.Errorf("page not found")
 	}
-	pageData.PageInfo = struct {
-		hasNextPage bool
-	}{
-		hasNextPage: respData["page"].(map[string]interface{})["pageInfo"].(map[string]interface{})["hasNextPage"].(bool),
-	}
-	medias := respData["page"].(map[string]interface{})["medias"].([]interface{})
-	for _, media := range medias {
-		mediaData := media.(map[string]interface{})
-		var title string
-		if mediaData["title"].(map[string]interface{})["english"] != nil {
-			title = mediaData["title"].(map[string]interface{})["english"].(string)
-		} else {
-			title = mediaData["title"].(map[string]interface{})["romaji"].(string)
+	data := &PageData{Medias: make([]Media, 0, len(response.Page.Medias))}
+	data.PageInfo.HasNextPage = response.Page.PageInfo.HasNextPage
+	for _, media := range response.Page.Medias {
+		title := media.Title.Romaji
+		if media.Title.English != nil && *media.Title.English != "" {
+			title = *media.Title.English
 		}
-		var airingSchedule []EpisodeSchedule
-		for _, schedule := range mediaData["airingSchedule"].(map[string]interface{})["nodes"].([]interface{}) {
-			scheduleData := schedule.(map[string]interface{})
-			airingSchedule = append(airingSchedule, EpisodeSchedule{
-				AiringAt: int(scheduleData["airingAt"].(float64)),
-				Episode:  int(scheduleData["episode"].(float64)),
-			})
-		}
-		var externalLinks []ExternalLinks
-		for _, link := range mediaData["externalLinks"].([]interface{}) {
-			linkData := link.(map[string]interface{})
-			if linkData["isDisabled"].(bool) {
-				continue
+		links := make([]ExternalLinks, 0, len(media.ExternalLinks))
+		for _, link := range media.ExternalLinks {
+			if !link.IsDisabled {
+				links = append(links, link.ExternalLinks)
 			}
-			var color string
-			var icon string
-			if linkData["color"] != nil {
-				color = linkData["color"].(string)
-			}
-			if linkData["icon"] != nil {
-				icon = linkData["icon"].(string)
-			}
-			externalLinks = append(externalLinks, ExternalLinks{
-				Type:  linkData["type"].(string),
-				Site:  linkData["site"].(string),
-				Color: &color,
-				Url:   linkData["url"].(string),
-				Icon:  &icon,
-			})
 		}
-		var episodes *int = nil
-		if mediaData["episodes"] != nil {
-			eps := int(mediaData["episodes"].(float64))
-			episodes = &eps
+		schedule := media.AiringSchedule.Nodes
+		if schedule == nil {
+			schedule = []EpisodeSchedule{}
 		}
-		var description *string = nil
-		if mediaData["description"] != nil {
-			desc := mediaData["description"].(string)
-			description = &desc
-		}
-		pageData.Medias = append(pageData.Medias, Media{
-			Id:             int(mediaData["id"].(float64)),
-			Title:          title,
-			Episodes:       episodes,
-			Description:    description,
-			AiringSchedule: airingSchedule,
-			CoverImage:     mediaData["coverImage"].(map[string]interface{})["large"].(string),
-			ExternalLinks:  externalLinks,
-			isAdult:        mediaData["isAdult"].(bool),
+		data.Medias = append(data.Medias, Media{
+			Id: media.Id, Title: title, Episodes: media.Episodes,
+			AiringSchedule: schedule, Description: media.Description,
+			CoverImage: media.CoverImage.Large, ExternalLinks: links, IsAdult: media.IsAdult,
 		})
-
 	}
-
-	return &pageData, nil
+	return data, nil
 }
 
 func CreateClient(delay time.Duration) *PollingClient {
-	return &PollingClient{
-		ApiFetchDelay: delay,
-		Chan:          make(chan []Media),
+	if delay <= 0 {
+		delay = time.Hour
 	}
+	return &PollingClient{ApiFetchDelay: delay, Chan: make(chan []Media)}
 }
 
-func (c *PollingClient) PollApi() ([]Media, error) {
-	// This method will be called every `c.ApiFetchDelay` seconds
-	var medias []Media
-	currentPage := 1
-	for {
+func pollPages(fetch func(int) (*PageData, error)) ([]Media, error) {
+	medias := []Media{}
+	for currentPage := 1; ; currentPage++ {
 		slog.Info("Fetching page", slog.Int("page", currentPage))
-		page, err := fetchPage(currentPage)
+		page, err := fetch(currentPage)
 		if err != nil {
 			return nil, err
 		}
 		medias = append(medias, page.Medias...)
-		if !page.PageInfo.hasNextPage {
-			break
+		if !page.PageInfo.HasNextPage {
+			return medias, nil
 		}
-		currentPage++
 	}
-	c.Chan <- medias
-	return medias, nil
+}
+
+// PollApi fetches a complete snapshot without requiring a channel consumer.
+func (c *PollingClient) PollApi() ([]Media, error) {
+	return pollPages(fetchPage)
 }
 
 func (c *PollingClient) Start() {
-	// Start polling
-	if c.started {
-		return
-	}
-	go func() {
-		c.started = true
-		for {
-			_, err := c.PollApi()
-			if err != nil {
-				slog.Error("Polling failed", slog.Any("error", err))
+	c.startOnce.Do(func() {
+		go func() {
+			for {
+				medias, err := c.PollApi()
+				if err != nil {
+					slog.Error("Polling failed", slog.Any("error", err))
+				} else {
+					c.Chan <- medias
+				}
+				time.Sleep(c.ApiFetchDelay)
 			}
-			time.Sleep(c.ApiFetchDelay)
-		}
-	}()
-	return
+		}()
+	})
 }

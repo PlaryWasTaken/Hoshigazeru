@@ -1,23 +1,19 @@
 package main
 
 import (
-	"github.com/PlaryWasTaken/Hoshigazeru/Client"
-	"github.com/PlaryWasTaken/Hoshigazeru/web"
 	"log/slog"
 	"os"
 	"time"
+
+	"github.com/PlaryWasTaken/Hoshigazeru/Client"
+	"github.com/PlaryWasTaken/Hoshigazeru/web"
 )
 
 func main() {
-	client := Client.CreateClient(time.Second*15, time.Hour)
+	client := Client.CreateClient(15*time.Second, time.Hour)
 	client.Start()
-
-	err := web.Start(client)
-	if err != nil {
-		slog.Error("Failed to start web server", slog.Any("error", err))
+	if err := web.Start(client); err != nil {
+		slog.Error("Web server stopped", slog.Any("error", err))
 		os.Exit(1)
-		return
 	}
-	c := make(chan struct{})
-	c <- struct{}{}
 }

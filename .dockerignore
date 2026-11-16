@@ -1,0 +1,6 @@
+.git
+.idea
+savedMedias.json
+.savedMedias-*.json
+test.go
+*.exe

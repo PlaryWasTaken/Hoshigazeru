@@ -1,10 +1,11 @@
 package web
 
 import (
+	"sync"
+	"time"
+
 	"github.com/PlaryWasTaken/Hoshigazeru/Client"
 	"github.com/gorilla/websocket"
-	"log/slog"
-	"time"
 )
 
 type PingHandler struct {
@@ -14,32 +15,47 @@ type PingHandler struct {
 	Client           *Client.Client
 	Id               int
 	Conn             *websocket.Conn
+	mu               sync.Mutex
+	startOnce        sync.Once
 }
 
 func (p *PingHandler) StartPings() {
-	go func() {
-		for {
-			if p.WaitingForPong {
-				p.PingsMissed++
-				slog.Info("Pings missed", slog.Int("missed", p.PingsMissed))
-				if p.PingsMissed > 3 {
-					_ = p.Conn.Close()
+	p.startOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			defer p.Client.Unsubscribe(p.Id)
+			for {
+				select {
+				case <-p.WebsocketHandler.Done():
+					return
+				default:
+				}
+				p.mu.Lock()
+				if p.WaitingForPong {
+					p.PingsMissed++
+				}
+				expired := p.PingsMissed > 3
+				p.WaitingForPong = true
+				p.mu.Unlock()
+				if expired {
 					p.WebsocketHandler.Destroy()
-					p.Client.Unsubscribe(p.Id)
 					return
 				}
+				p.WebsocketHandler.SendMessage([]byte("ping"))
+				select {
+				case <-p.WebsocketHandler.Done():
+					return
+				case <-ticker.C:
+				}
 			}
-			p.WebsocketHandler.MsgChan <- Message{
-				Type: TextMessage,
-				Data: []byte("ping"),
-			}
-			p.WaitingForPong = true
-
-			time.Sleep(time.Second * 5)
-		}
-	}()
+		}()
+	})
 }
+
 func (p *PingHandler) AcknowledgePing() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.WaitingForPong = false
 	p.PingsMissed = 0
 }
